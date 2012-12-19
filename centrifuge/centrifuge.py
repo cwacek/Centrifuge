@@ -5,7 +5,7 @@ import logging
 import logging.handlers
 import pkg_resources
 
-logging.basicConfig(level=logging.DEBUG,format='%(name)-12s: %(levelname)-8s %(message)s')
+logging.basicConfig(level=logging.WARNING,format='%(name)-12s: %(levelname)-8s %(message)s')
 log = logging.getLogger('centrifuge')
 
 formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
