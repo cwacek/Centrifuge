@@ -1,4 +1,4 @@
-from distutils.core import setup
+from setuptools import setup, find_packages
 
 setup(name='centrifuge',
       version='0.1',
@@ -6,5 +6,10 @@ setup(name='centrifuge',
       author='Chris Wacek',
       author_email='cwacek@gmail.com',
       url='http://github.com/cwacek/Centrifuge',
-      packages=['centrifuge'],
+      packages=find_packages(),
+
+      entry_points= {
+        'console_scripts':
+          ["centrifuge = centrifuge.centrifuge:run"]
+        }
      )

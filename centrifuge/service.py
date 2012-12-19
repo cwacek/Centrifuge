@@ -15,13 +15,6 @@ Python (3) style named interpolation is allowed in the commands. There are
 several universally defined variables that will be interpolated into commands
 when they are run.  These are:
 
-config
-  Universal configuration string intended to provide user specific 
-  requirements. For example, for **tarsnap** it may be necessary to 
-  add '--configfile /home/bobjones/.tarsnaprc' to every command. 
-
-  This value often comes from user-defined service specification addons.
-
 archive_name
   The name of the archive that's being dealt with. Usually interpolated 
   by default.
@@ -34,17 +27,24 @@ Example::
 
   tarsnap:
     var_bin: "/usr/local/bin/tarnsap"
-    cmd_create: "$var_bin $config --print-stats --humanize-numbers --one-file-system -cf $archive_name"
-    cmd_delete: "$var_bin $config -df $archive_name"
+    cmd_create: "$var_bin $user_config --print-stats --humanize-numbers --one-file-system -cf $archive_name"
+    cmd_delete: "$var_bin $user_config -df $archive_name"
 
 This defines the **tarsnap** service, with the commands *create* and
-*delete*. The ``var_bin`` notation is explained further below.
+*delete*. 
 """
 import yaml
 import logging
+import subprocess
 import string
 
+
 log = logging.getLogger("centrifuge.service")
+
+__ALL__ = [ "ServiceDefinitionError", 
+            "ServiceLoadError",
+            "BackupService" 
+          ]
 
 class ServiceLoadError(Exception):
   msg = "Treated '{0}' as {1}. Failed to load [{2}]"
@@ -72,6 +72,7 @@ class BackupService(object):
     Build a BackupService object with the commands specified by
     *cmds*, with the variables specified by *spec_vars*.
     """
+    
     self.name = name
     for command in self.commands:
       spec_key = "cmd_{0}".format(command)
@@ -89,6 +90,48 @@ class BackupService(object):
       raise AttributeError("type object 'BackupService' has "
                            "no attribute '{0}'".format(attr))
 
+  
+  def trim(self,interval,local_state, keep):
+    """
+    Delete *interval* backups known in *state* until only *keep* 
+    newest are left.
+    """
+    candidates = local_state[interval]
+    if len(candidates) > keep:
+      return
+
+    for candidate in sorted(candidates,key=lambda x: x.date_created)[keep:]:
+      del_cmd = string.Template(self.delete).safe_substitute(archive_name=str(candidate))
+      result = subprocess.check_output(del_cmd.split(),stderr=subprocess.STDOUT)
+      logging.info("Trimmed {0}. Result: {1}".format(candidate,result))
+
+
+  def rotate(self,interval,local_state, files):
+    """ Delete an old backup and add a new one """
+    to_delete = local_state.get_oldest(interval)
+    local_state[interval].remove(to_delete)
+
+    del_cmd = string.Template(self.delete).safe_substitute(archive_name=str(to_delete))
+    result = subprocess.check_output(del_cmd.split(),stderr=subprocess.STDOUT)
+    logging.info("Rotating. Removed {0}. Result: {1}".format(to_delete,result))
+
+    self.add(interval,local_state, files)
+
+
+  def add(self,interval,local_state, files):
+    """ Add a new backup instance via this service """
+    newbackup = local_state.add_instance(interval)
+    create_cmd = (string.Template(self.create)
+                    .safe_substitute(archive_name=str(newbackup))
+                    .split())
+    create_cmd.extend(files)
+
+    try:
+      result = subprocess.check_output(create_cmd,stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError,e:
+      logging.warn("failed to add archive: [{0}]".format(e))
+    else:
+      logging.info("Rotating. Added {0}. Result: {1}".format(newbackup,result))
 
 
   @classmethod
@@ -102,7 +145,7 @@ class BackupService(object):
     user variables for that service.
     """
     loaded = cls._load(specs)
-    services =  cls._parse(loaded,userspec)
+    services =  cls._parse(loaded,userspec if userspec is not None else dict())
     
     return services
 
@@ -114,7 +157,7 @@ class BackupService(object):
       log.info("Attempt to load '{0}' as file or string " 
                "failed.".format(str(spec)))
       try:
-        loaded_spec = yaml.safe_load(open(specfile))
+        loaded_spec = yaml.safe_load(open(spec))
       except Exception,e:
         log.warn("Failed to load service specification '{0}'.".format(str(spec)))
         raise ServiceLoadError(spec,"filename",e)
@@ -122,8 +165,9 @@ class BackupService(object):
       return loaded_spec # if we have one.
 
   @classmethod
-  def _parse(classname,loaded_specfile,uservars):
-    services = []
+  def _parse(classname,loaded_specfile,uservars=dict()):
+    
+    services = {}
     for service,details in loaded_specfile.iteritems():
       spec_vars = dict([(key,val) 
                         for key,val 
@@ -147,7 +191,7 @@ class BackupService(object):
       except ServiceDefinitionError, e:
         raise e
       
-      services.append(service)
+      services[service.name] = service
 
     return services
 

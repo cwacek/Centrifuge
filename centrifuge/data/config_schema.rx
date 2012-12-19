@@ -1,0 +1,11 @@
+type: //rec
+required:
+  files:
+    type: //arr
+    length: { min: 1}
+    contents: { type: //str }
+  service: //str
+optional:
+  weekly: //int
+  monthly: //int
+  daily: //int
