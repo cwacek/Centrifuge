@@ -16,7 +16,7 @@ several universally defined variables that will be interpolated into commands
 when they are run.  These are:
 
 archive_name
-  The name of the archive that's being dealt with. Usually interpolated 
+  The name of the archive that's being dealt with. Usually interpolated
   by default.
 
 In addition, variables can be specified in the service specification for
@@ -31,7 +31,7 @@ Example::
     cmd_delete: "$var_bin $user_config -df $archive_name"
 
 This defines the **tarsnap** service, with the commands *create* and
-*delete*. 
+*delete*.
 """
 import yaml
 import logging
@@ -41,9 +41,9 @@ import string
 
 log = logging.getLogger("centrifuge.service")
 
-__ALL__ = [ "ServiceDefinitionError", 
+__ALL__ = [ "ServiceDefinitionError",
             "ServiceLoadError",
-            "BackupService" 
+            "BackupService"
           ]
 
 class ServiceLoadError(Exception):
@@ -68,20 +68,20 @@ class BackupService(object):
   }
 
   def __init__(self, name,cmds, spec_vars):
-    """ 
+    """
     Build a BackupService object with the commands specified by
     *cmds*, with the variables specified by *spec_vars*.
     """
-    
+
     self.name = name
     for command in self.commands:
       spec_key = "cmd_{0}".format(command)
       try:
         newcommand = cmds[spec_key]
       except KeyError:
-        log.info("Service '{0}' does not provide '{1}'".format(name,command))
+        log.debug("Service '{0}' does not provide '{1}'".format(name,command))
       else:
-        self.commands[command] = string.Template(newcommand).safe_substitute(spec_vars) 
+        self.commands[command] = string.Template(newcommand).safe_substitute(spec_vars)
 
   def __getattr__(self,attr):
     try:
@@ -90,10 +90,10 @@ class BackupService(object):
       raise AttributeError("type object 'BackupService' has "
                            "no attribute '{0}'".format(attr))
 
-  
+
   def trim(self,interval,local_state, keep):
     """
-    Delete *interval* backups known in *state* until only *keep* 
+    Delete *interval* backups known in *state* until only *keep*
     newest are left.
     """
     candidates = local_state[interval]
@@ -136,7 +136,7 @@ class BackupService(object):
 
   @classmethod
   def LoadSpecs(cls,specs,userspec=None):
-    """ 
+    """
     Returns a list of BackupServices loaded from
     the specification file *specs*.
 
@@ -146,7 +146,7 @@ class BackupService(object):
     """
     loaded = cls._load(specs)
     services =  cls._parse(loaded,userspec if userspec is not None else dict())
-    
+
     return services
 
   @staticmethod
@@ -154,7 +154,7 @@ class BackupService(object):
     try:
       loaded_spec = yaml.safe_load(spec)
     except yaml.YAMLError, e:
-      log.info("Attempt to load '{0}' as file or string " 
+      log.warn("Attempt to load '{0}' as file or string "
                "failed.".format(str(spec)))
       try:
         loaded_spec = yaml.safe_load(open(spec))
@@ -166,37 +166,31 @@ class BackupService(object):
 
   @classmethod
   def _parse(classname,loaded_specfile,uservars=dict()):
-    
+
     services = {}
     for service,details in loaded_specfile.iteritems():
-      spec_vars = dict([(key,val) 
-                        for key,val 
-                        in details.iteritems() 
+      spec_vars = dict([(key,val)
+                        for key,val
+                        in details.iteritems()
                         if key.startswith("var_")])
 
       try:
         spec_vars.update(uservars[service])
       except TypeError:
-        log.info("Loading '{0}': No user variables provided.".format(service))
+        log.debug("Loading '{0}': No user variables provided.".format(service))
       except KeyError:
-        log.info("Loading '{0}': No user variables provided.".format(service))
+        log.debug("Loading '{0}': No user variables provided.".format(service))
 
-      spec_cmds = dict([(key,val) 
-                        for key,val 
-                        in details.iteritems() 
-                        if key.startswith("cmd_")]) 
+      spec_cmds = dict([(key,val)
+                        for key,val
+                        in details.iteritems()
+                        if key.startswith("cmd_")])
 
       try:
         service = classname(service,spec_cmds,spec_vars)
       except ServiceDefinitionError, e:
         raise e
-      
+
       services[service.name] = service
 
     return services
-
-
-     
-    
-
-    
