@@ -5,7 +5,7 @@ import logging
 import logging.handlers
 import pkg_resources
 
-logging.basicConfig(level=logging.WARNING,format='%(name)-12s: %(levelname)-8s %(message)s')
+logging.basicConfig(level=logging.INFO,format='%(name)-12s: %(levelname)-8s %(message)s')
 log = logging.getLogger('centrifuge')
 
 formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
@@ -108,7 +108,7 @@ class Centrifuge(object):
     our state file.
     """
     
-    log.info("Setting up data directory '{0}'".format(self.DATA_DIR))
+    log.debug("Setting up data directory '{0}'".format(self.DATA_DIR))
     if not os.path.exists(self.DATA_DIR):
       try:
         os.makedirs(self.DATA_DIR)
@@ -122,7 +122,7 @@ class Centrifuge(object):
     Load any user defined variables from `~/.centrifuge/user.vars`
     """
     if not os.path.exists(self._userpath("user.vars")):
-      log.info("Couldn't find any user variables. Didn't load any")
+      log.debug("Couldn't find any user variables. Didn't load any")
     else:
       try:
         uservars = yaml.safe_load(open(self._userpath("user.vars")))
