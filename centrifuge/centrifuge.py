@@ -90,7 +90,7 @@ class Centrifuge(object):
     except KeyError:
       latest_created = datetime.date(year=1900,month=1,day=1)
 
-    if (datetime.date.today() - latest_created) > self.TIMEDELTAS[interval]:
+    if (datetime.date.today() - latest_created) >= self.TIMEDELTAS[interval]:
       if len(bstate[interval]) > bconfig[interval]:
         bservice.trim(interval,bstate)
       elif len(bstate[interval]) == bconfig[interval]:
@@ -98,7 +98,7 @@ class Centrifuge(object):
       else:
         bservice.add(interval,bstate,bconfig['files'])
     else:
-      log.info("Skipping '{0}' interval. It's only been '{1}' days".format(
+      log.info("Skipping '{0}' interval. It's only been {1}".format(
                   interval,
                   datetime.date.today() - latest_created))
         
