@@ -1,4 +1,5 @@
 import os
+import sys
 import datetime
 import yaml
 import logging
@@ -43,6 +44,7 @@ class Centrifuge(object):
       self.config = BackupConfig(self.config_file)
       self.config.check_services(self.supported_services())
       func(self,*args, **kwargs)
+    return _decorator
 
   @classmethod
   def _userpath(cls,path):
@@ -64,10 +66,16 @@ class Centrifuge(object):
     self.services = self._load_services(user_spec_vars,addl_svc_dir)
 
   @config_required
-  def run_backups(self,args):
-    for backup in args.backup_name:
+  def run_backups(self,*args,**kwargs):
+    cm_args = kwargs['args']
+    success = []
+    for backup in cm_args.backup_name:
       log.info("Running backup '{0}'".format(backup))
-      self.run_backup(backup)
+      success.append(self.run_backup(backup))
+      if not success[-1]:
+        log.info("'{0}' was not completely successful".format(backup))
+
+    return all(success)
 
   def run_backup(self,backup_name):
     try:
@@ -83,12 +91,14 @@ class Centrifuge(object):
         backup_state = self.state[backup_name]
 
       bservice = self.services[ backup_config['service'] ]
-      self.try_backup(bservice,backup_config,backup_state,"daily")
-      self.try_backup(bservice,backup_config,backup_state,"weekly")
-      self.try_backup(bservice,backup_config,backup_state,"monthly")
+      ok_daily = self.try_backup(bservice,backup_config,backup_state,"daily")
+      ok_weekly = self.try_backup(bservice,backup_config,backup_state,"weekly")
+      ok_monthly = self.try_backup(bservice,backup_config,backup_state,"monthly")
 
       with open(self.STATEFILE,'w') as statef:
         yaml.dump(self.state,statef)
+
+      return all((ok_monthly,ok_daily,ok_weekly))
 
 
   def try_backup(self,bservice, bconfig,bstate,interval):
@@ -102,15 +112,18 @@ class Centrifuge(object):
 
     if (datetime.date.today() - latest_created) >= self.TIMEDELTAS[interval]:
       if len(bstate[interval]) > bconfig[interval]:
-        bservice.trim(interval,bstate)
+        okay = bservice.trim(interval,bstate)
       elif len(bstate[interval]) == bconfig[interval]:
-        bservice.rotate(interval,bstate,bconfig['files'])
+        okay = bservice.rotate(interval,bstate,bconfig['files'])
       else:
-        bservice.add(interval,bstate,bconfig['files'])
+        okay = bservice.add(interval,bstate,bconfig['files'])
     else:
+      okay = True
       log.info("Skipping '{0}' interval. It's only been {1}".format(
                   interval,
                   datetime.date.today() - latest_created))
+
+    return okay
 
   def _setup_datadir(self):
     """
@@ -160,7 +173,7 @@ class Centrifuge(object):
     return services
 
   @config_required
-  def list_backups(self,**kwargs):
+  def list_backups(self,*args,**kwargs):
     """
     List the configured backups that we know about.
     """
@@ -207,15 +220,20 @@ class Centrifuge(object):
     args = container.parse_args()
     self.config_file = getattr(args,"config",None)
 
-    args.func(args=args,state=self.state)
-
     if args.v:
       log.setLevel(logging.DEBUG)
+
+    return args.func(args=args,state=self.state)
+
 
 
 def run():
   try:
-    Centrifuge().act()
+    ok = Centrifuge().act()
+    if ok:
+      sys.exit(0)
+    else:
+      sys.exit(1)
   except CentrifugeFatalError,e:
     log.error("{0}".format(e))
 
