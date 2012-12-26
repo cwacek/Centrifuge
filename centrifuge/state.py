@@ -80,7 +80,7 @@ class State(PropertyDict):
     except IOError,e:
       if e.errno == 2:
 # The file doesn't exist. That's okay
-        log.info("Statefile '{0}' doesn't exist. Will create".format(statefilepath))
+        log.debug("Statefile '{0}' doesn't exist. Will create".format(statefilepath))
         return dict()
     except Exception, e:
       raise centrifuge.CentrifugeFatalError("Fatal")
@@ -102,7 +102,8 @@ class State(PropertyDict):
           # There is no known last backup. That's fine.
           pass
       except KeyError:
-        raise CentrifugeFatalError("Couldn't find '{0}' key in statefile".format(key))
+        raise centrifuge.CentrifugeFatalError("Couldn't find '{0}' key in statefile".format(key))
+
 
 
   

@@ -122,7 +122,7 @@ class Centrifuge(object):
     Load any user defined variables from `~/.centrifuge/user.vars`
     """
     if not os.path.exists(self._userpath("user.vars")):
-      log.debug("Couldn't find any user variables. Didn't load any")
+      log.warn("Couldn't find any user variables in '{0}'".format(self._userpath("user.vars")))
     else:
       try:
         uservars = yaml.safe_load(open(self._userpath("user.vars")))
@@ -173,16 +173,17 @@ class Centrifuge(object):
     p.add_argument("-c","--config",type=str,
                    help="Backup Configuration File",
                    required=True)
-    p.add_argument("-v",action="store_true",
+    vbose = argparse.ArgumentParser(add_help=False)
+    vbose.add_argument("-v",action="store_true",
                    help="Be verbose")
 
     subp = container.add_subparsers(description="Commands")
-    runp = subp.add_parser("run",parents=[p],
+    runp = subp.add_parser("run",parents=[p,vbose],
                            help="Run configured backups")
     runp.add_argument("backup_name",nargs="+")
     runp.set_defaults(func=self.run_backups)
 
-    lsp = subp.add_parser("list_services",parents=[p],
+    lsp = subp.add_parser("list_services",parents=[vbose],
                           help="List the available backup services")
     lsp.set_defaults(func=self.list_services)
 
@@ -190,7 +191,13 @@ class Centrifuge(object):
                           help="List the configured backups")
     lsb.set_defaults(func=self.list_backups)
 
+    lss = subp.add_parser("state",parents=[vbose],
+                          help="Commands relating to Centrifuge's internal state")
+
     args = container.parse_args()
+
+    if args.v:
+      log.setLevel(logging.DEBUG)
 
     self.config = BackupConfig(args.config)
     self.config.check_services(self.supported_services())
