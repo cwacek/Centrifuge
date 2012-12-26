@@ -35,6 +35,15 @@ class Centrifuge(object):
     'monthly': datetime.timedelta(days=30)
   }
 
+  def config_required(func):
+    def _decorator( self, *args, **kwargs):
+      if not self.config_file:
+        raise CentrifugeFatalError('Configuration file required for this command')
+
+      self.config = BackupConfig(self.config_file)
+      self.config.check_services(self.supported_services())
+      func(self,*args, **kwargs)
+
   @classmethod
   def _userpath(cls,path):
     return "{0}/{1}".format(cls.USER_SPEC_DIR,path)
@@ -54,6 +63,7 @@ class Centrifuge(object):
     addl_svc_dir = filter( os.path.exists, self.ADDL_SERVICE_DIRS)
     self.services = self._load_services(user_spec_vars,addl_svc_dir)
 
+  @config_required
   def run_backups(self,args):
     for backup in args.backup_name:
       log.info("Running backup '{0}'".format(backup))
@@ -149,6 +159,7 @@ class Centrifuge(object):
 
     return services
 
+  @config_required
   def list_backups(self,**kwargs):
     """
     List the configured backups that we know about.
@@ -191,18 +202,15 @@ class Centrifuge(object):
                           help="List the configured backups")
     lsb.set_defaults(func=self.list_backups)
 
-    lss = subp.add_parser("state",parents=[vbose],
-                          help="Commands relating to Centrifuge's internal state")
+    state.State.make_parser(self.state,subp,parents=[vbose])
 
     args = container.parse_args()
+    self.config_file = getattr(args,"config",None)
+
+    args.func(args=args,state=self.state)
 
     if args.v:
       log.setLevel(logging.DEBUG)
-
-    self.config = BackupConfig(args.config)
-    self.config.check_services(self.supported_services())
-
-    args.func(args=args)
 
 
 def run():
