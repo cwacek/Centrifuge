@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='centrifuge',
-      version='0.1',
+      version='0.2',
       description='Simple service agnostic rotational backup',
       author='Chris Wacek',
       author_email='cwacek@gmail.com',

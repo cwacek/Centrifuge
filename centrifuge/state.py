@@ -17,7 +17,7 @@ class PropertyDict(dict):
             "PropertyDict has no attribute '{0}'".format(key))
 
 class BackupInstance(yaml.YAMLObject):
-  
+
   def __init__(self,archive_name, interval, date_created=None):
     self.name = archive_name
     self.interval =interval
@@ -49,20 +49,54 @@ class State(PropertyDict):
       try:
         self.parse(statedict)
       except Exception, e:
-        raise 
+        raise
     else:
       self['daily'] = []
       self['weekly'] = []
       self['monthly'] = []
 
-  def add_instance(self,interval):
-    """Add a backup instance to this state object"""
+  def create_instance(self,interval):
+    """
+    Create a new backup instance, but don't add it to
+    the list yet.
+
+    Return a tuple containing the new_instance and the new
+    'latest_key' that it belongs to.
+    """
     newinstance = BackupInstance(self.backup_name,interval)
+
+    return newinstance
+
+  def add_instance(self,instance):
+    """
+    Add the backup instance *instance* to this state object
+    """
+    if instance in self[instance.interval]:
+      logging.debug("Backup instance '{0}' already exists in state file.".format(instance) +
+                    " Will not add again")
+      return
+
+    self[instance.interval].append(instance)
+
+    latest_key = "last_{0}".format(instance.interval)
+    self[latest_key] = instance
+
+  def add_to_interval(self,interval):
+    """
+    Add a backup instance to this state object at
+    interval 'interval'
+    """
+    newinstance = BackupInstance(self.backup_name,interval)
+    if newinstance in self[interval]:
+      logging.debug("Backup instance '{0}' already exists in state file.".format(newinstance) +
+                    " Will not add again")
+      return
+
     self[interval].append(newinstance)
 
     latest_key = "last_{0}".format(interval)
     self[latest_key] = newinstance
-    
+
     return newinstance
 
   def get_oldest(self,interval):
@@ -74,13 +108,13 @@ class State(PropertyDict):
       with open(statefilepath) as statefile:
         try:
           yamlobj = yaml.load(statefile.read())
-          
+
         except yaml.YAMLError,e:
           raise StateParseError("Unable to parse state. [{0}]".format(e))
     except IOError,e:
       if e.errno == 2:
 # The file doesn't exist. That's okay
-        log.info("Statefile '{0}' doesn't exist. Will create".format(statefilepath))
+        log.debug("Statefile '{0}' doesn't exist. Will create".format(statefilepath))
         return dict()
     except Exception, e:
       raise centrifuge.CentrifugeFatalError("Fatal")
@@ -102,7 +136,57 @@ class State(PropertyDict):
           # There is no known last backup. That's fine.
           pass
       except KeyError:
-        raise CentrifugeFatalError("Couldn't find '{0}' key in statefile".format(key))
+        raise centrifuge.CentrifugeFatalError("Couldn't find '{0}' key in statefile".format(key))
+
+  @classmethod
+  def make_parser(cls,statedict,parent=None,**kwargs):
+    if parent:
+      parser = parent.add_parser("state",
+                                help="Commands relating to Centrifuge's internal state",
+                                **kwargs)
+    else:
+      import argparse
+      parser = argparse.ArgumentParser()
+
+    mg = parser.add_mutually_exclusive_group(required=True)
+    mg.add_argument("-l", "--list",action="store_true",
+                    help="List known backups present in the state file")
+    parser.set_defaults(func=cls.actions)
+
+    return parser
+
+  def __str__(self):
+    ret = ""
+
+    ret += "    Daily:\n"
+    for daily in self['daily']:
+      ret +="      - {0}\n".format(str(daily))
+
+    ret += "    Weekly:\n"
+    for weekly in self['weekly']:
+      ret +="      - {0}\n".format(str(weekly))
+
+    ret += "    Monthly:\n"
+    for monthly in self['monthly']:
+      ret +="      - {0}\n".format(str(monthly))
+
+    return ret
+
+  @staticmethod
+  def actions(args,state):
+    """
+    Handle command line actions that want to deal with the statefile.
+    """
+
+    if args.list == True:
+      for name,instance in state.iteritems():
+        print("Backup: {0}".format(name))
+        print(instance)
+    else:
+      raise centrifuge.CentrifugeFatalError("Unrecognized command line argument")
 
 
-  
+
+
+
+
