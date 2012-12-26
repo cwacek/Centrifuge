@@ -17,7 +17,7 @@ class PropertyDict(dict):
             "PropertyDict has no attribute '{0}'".format(key))
 
 class BackupInstance(yaml.YAMLObject):
-  
+
   def __init__(self,archive_name, interval, date_created=None):
     self.name = archive_name
     self.interval =interval
@@ -49,7 +49,7 @@ class State(PropertyDict):
       try:
         self.parse(statedict)
       except Exception, e:
-        raise 
+        raise
     else:
       self['daily'] = []
       self['weekly'] = []
@@ -62,7 +62,7 @@ class State(PropertyDict):
 
     latest_key = "last_{0}".format(interval)
     self[latest_key] = newinstance
-    
+
     return newinstance
 
   def get_oldest(self,interval):
@@ -74,7 +74,7 @@ class State(PropertyDict):
       with open(statefilepath) as statefile:
         try:
           yamlobj = yaml.load(statefile.read())
-          
+
         except yaml.YAMLError,e:
           raise StateParseError("Unable to parse state. [{0}]".format(e))
     except IOError,e:
@@ -104,6 +104,55 @@ class State(PropertyDict):
       except KeyError:
         raise centrifuge.CentrifugeFatalError("Couldn't find '{0}' key in statefile".format(key))
 
+  @classmethod
+  def make_parser(cls,statedict,parent=None,**kwargs):
+    if parent:
+      parser = parent.add_parser("state",
+                                help="Commands relating to Centrifuge's internal state",
+                                **kwargs)
+    else:
+      import argparse
+      parser = argparse.ArgumentParser()
+
+    mg = parser.add_mutually_exclusive_group(required=True)
+    mg.add_argument("-l", "--list",action="store_true",
+                    help="List known backups present in the state file")
+    parser.set_defaults(func=cls.actions)
+
+    return parser
+
+  def __str__(self):
+    ret = ""
+
+    ret += "    Daily:\n"
+    for daily in self['daily']:
+      ret +="      - {0}\n".format(str(daily))
+
+    ret += "    Weekly:\n"
+    for weekly in self['weekly']:
+      ret +="      - {0}\n".format(str(weekly))
+
+    ret += "    Monthly:\n"
+    for monthly in self['monthly']:
+      ret +="      - {0}\n".format(str(monthly))
+
+    return ret
+
+  @staticmethod
+  def actions(args,state):
+    """
+    Handle command line actions that want to deal with the statefile.
+    """
+
+    if args.list == True:
+      for name,instance in state.iteritems():
+        print("Backup: {0}".format(name))
+        print(instance)
+    else:
+      raise centrifuge.CentrifugeFatalError("Unrecognized command line argument")
 
 
-  
+
+
+
+

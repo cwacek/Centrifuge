@@ -21,7 +21,7 @@ class Centrifuge(object):
 
   DATA_DIR = "/var/lib/centrifuge"
   DEFAULT_SERVICES = [pkg_resources.resource_string(__name__,"data/services/{0}".format(service))
-                          for service 
+                          for service
                           in pkg_resources.resource_listdir(__name__,"data/services")
                      ]
   ADDL_SERVICE_DIRS = [ os.path.expanduser("~/.centrifuge/services"),
@@ -80,7 +80,7 @@ class Centrifuge(object):
         backup_state = self.state[backup_name]
       except KeyError:
         self.state[backup_name] = state.State(backup_name)
-        backup_state = self.state[backup_name] 
+        backup_state = self.state[backup_name]
 
       bservice = self.services[ backup_config['service'] ]
       self.try_backup(bservice,backup_config,backup_state,"daily")
@@ -111,20 +111,20 @@ class Centrifuge(object):
       log.info("Skipping '{0}' interval. It's only been {1}".format(
                   interval,
                   datetime.date.today() - latest_created))
-        
+
   def _setup_datadir(self):
     """
     Setup the /var/lib/centrifuge data directory and load
     our state file.
     """
-    
+
     log.debug("Setting up data directory '{0}'".format(self.DATA_DIR))
     if not os.path.exists(self.DATA_DIR):
       try:
         os.makedirs(self.DATA_DIR)
       except OSError,e:
         raise CentrifugeFatalError("Unable to create data directory: {0}".format(e[1]))
-    
+
     self.state = state.State.ParseFile(self.STATEFILE)
 
   def _load_user_vars(self):
@@ -142,7 +142,7 @@ class Centrifuge(object):
         raise CentrifugeFatalError("Failed while trying to read user variable file.")
       else:
         return uservars
-  
+
   def _load_services(self,uservars=None,additional_dirs=[]):
     """
     Load services from a couple of locations. First the built in services,
@@ -176,7 +176,7 @@ class Centrifuge(object):
     List the available backup services we have
     """
     self.supported_services(printout=True)
-      
+
   def act(self):
     import argparse
     container = argparse.ArgumentParser(add_help=False)
