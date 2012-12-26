@@ -96,31 +96,55 @@ class BackupService(object):
     Delete *interval* backups known in *state* until only *keep*
     newest are left.
     """
+    okay = True
     candidates = local_state[interval]
-    if len(candidates) > keep:
+    if len(candidates) <= keep:
       return
 
     for candidate in sorted(candidates,key=lambda x: x.date_created)[keep:]:
       del_cmd = string.Template(self.delete).safe_substitute(archive_name=str(candidate))
-      result = subprocess.check_output(del_cmd.split(),stderr=subprocess.STDOUT)
-      logging.info("Trimmed {0}. Result: {1}".format(candidate,result))
+      try:
+        result = subprocess.check_output(del_cmd.split(),stderr=subprocess.STDOUT)
+      except subprocess.CalledProcessError,e:
+        log.warn("Failed to trim archive '{0}' [{1}]".format(candidate,e))
+        okay = False
+      else:
+        local_state[interval].remove(candidate)
+        log.info("Trimmed {0}. ".format(candidate))
+        log.debug("Service output: {0}".format(result))
+
+    return okay
 
 
   def rotate(self,interval,local_state, files):
     """ Delete an old backup and add a new one """
+    log.info("Rotating {0}".format(interval))
+    okay=True
     to_delete = local_state.get_oldest(interval)
-    local_state[interval].remove(to_delete)
 
     del_cmd = string.Template(self.delete).safe_substitute(archive_name=str(to_delete))
-    result = subprocess.check_output(del_cmd.split(),stderr=subprocess.STDOUT)
-    logging.info("Rotating. Removed {0}. Result: {1}".format(to_delete,result))
+
+    try:
+      result = subprocess.check_output(del_cmd.split(),stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError,e:
+      log.warn("Failed to remove '{0}' while rotating. [{1}]".format(
+                      to_delete,e))
+      okay=False
+    else:
+      local_state[interval].remove(to_delete)
+      log.info("Removed {0}. ".format(to_delete))
+      log.debug("Service output: {0}".format(result))
 
     self.add(interval,local_state, files)
+
+    return okay
 
 
   def add(self,interval,local_state, files):
     """ Add a new backup instance via this service """
-    newbackup = local_state.add_instance(interval)
+    okay=True
+
+    newbackup = local_state.create_instance(interval)
     create_cmd = (string.Template(self.create)
                     .safe_substitute(archive_name=str(newbackup))
                     .split())
@@ -129,9 +153,14 @@ class BackupService(object):
     try:
       result = subprocess.check_output(create_cmd,stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError,e:
-      logging.warn("failed to add archive: [{0}]".format(e))
+      log.warn("failed to add archive: [{0}]".format(e))
+      okay=False
     else:
-      logging.info("Rotating. Added {0}. Result: {1}".format(newbackup,result))
+      log.info("Added {0}. ".format(newbackup))
+      log.debug("Service Output: {0}".foramt(result))
+      local_state.add_instance(newbackup)
+
+    return okay
 
 
   @classmethod

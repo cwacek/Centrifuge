@@ -55,9 +55,43 @@ class State(PropertyDict):
       self['weekly'] = []
       self['monthly'] = []
 
-  def add_instance(self,interval):
-    """Add a backup instance to this state object"""
+  def create_instance(self,interval):
+    """
+    Create a new backup instance, but don't add it to
+    the list yet.
+
+    Return a tuple containing the new_instance and the new
+    'latest_key' that it belongs to.
+    """
     newinstance = BackupInstance(self.backup_name,interval)
+
+    return newinstance
+
+  def add_instance(self,instance):
+    """
+    Add the backup instance *instance* to this state object
+    """
+    if instance in self[instance.interval]:
+      logging.debug("Backup instance '{0}' already exists in state file.".format(instance) +
+                    " Will not add again")
+      return
+
+    self[instance.interval].append(instance)
+
+    latest_key = "last_{0}".format(instance.interval)
+    self[latest_key] = instance
+
+  def add_to_interval(self,interval):
+    """
+    Add a backup instance to this state object at
+    interval 'interval'
+    """
+    newinstance = BackupInstance(self.backup_name,interval)
+    if newinstance in self[interval]:
+      logging.debug("Backup instance '{0}' already exists in state file.".format(newinstance) +
+                    " Will not add again")
+      return
+
     self[interval].append(newinstance)
 
     latest_key = "last_{0}".format(interval)
