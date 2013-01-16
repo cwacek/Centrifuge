@@ -107,15 +107,18 @@ class State(PropertyDict):
     try:
       with open(statefilepath) as statefile:
         try:
-          yamlobj = yaml.load(statefile.read())
+          statestr = statefile.read()
+          if len(statestr) < 1:
+            raise IOError
+
+          yamlobj = yaml.load(statestr)
 
         except yaml.YAMLError,e:
           raise StateParseError("Unable to parse state. [{0}]".format(e))
     except IOError,e:
-      if e.errno == 2:
-# The file doesn't exist. That's okay
-        log.debug("Statefile '{0}' doesn't exist. Will create".format(statefilepath))
-        return dict()
+      # The file doesn't exist. That's okay
+      log.debug("Statefile '{0}' doesn't exist. Will create".format(statefilepath))
+      return dict()
     except Exception, e:
       raise centrifuge.CentrifugeFatalError("Fatal")
     else:
