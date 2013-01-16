@@ -21,7 +21,7 @@ class CentrifugeFatalError(Exception):
 class Centrifuge(object):
 
   DATA_DIR = "/var/lib/centrifuge"
-  DEFAULT_SERVICES = [pkg_resources.resource_string(__name__,"data/services/{0}".format(service))
+  DEFAULT_SERVICES = [(service,pkg_resources.resource_string(__name__,"data/services/{0}".format(service)))
                           for service
                           in pkg_resources.resource_listdir(__name__,"data/services")
                      ]
@@ -163,12 +163,21 @@ class Centrifuge(object):
     """
     services = {}
 
-    for service_file in self.DEFAULT_SERVICES:
-      services.update(service.BackupService.LoadSpecs(service_file,uservars))
+    for service_name,service_file in self.DEFAULT_SERVICES:
+      try:
+        services.update(service.BackupService.LoadSpecs(service_file,uservars))
+      except service.ServiceDefinitionError,e:
+        log.error("Error parsing built-in service '{0}': {1}".format(service_name,e))
 
     for addl_dir in additional_dirs:
       for service_file in os.listdir(addl_dir):
-        services.update(service.BackupService.LoadSpecs(open(service_file),uservars))
+        fname = addl_dir + "/" + service_file
+        try:
+          services.update(service.BackupService.LoadSpecs(fname,uservars))
+        except service.ServiceDefinitionError,e:
+          log.error("Error parsing user service '{0}': {1}".format(fname,e))
+        except service.ServiceLoadError,e:
+          pass
 
     return services
 
