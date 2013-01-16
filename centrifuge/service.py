@@ -157,7 +157,7 @@ class BackupService(object):
       okay=False
     else:
       log.info("Added {0}. ".format(newbackup))
-      log.debug("Service Output: {0}".foramt(result))
+      log.debug("Service Output: {0}".format(result))
       local_state.add_instance(newbackup)
 
     return okay
@@ -191,6 +191,8 @@ class BackupService(object):
         log.warn("Failed to load service specification '{0}'.".format(str(spec)))
         raise ServiceLoadError(spec,"filename",e)
     finally:
+      if not loaded_spec:
+        raise ServiceDefinitionError("Empty service specification")
       return loaded_spec # if we have one.
 
   @classmethod
