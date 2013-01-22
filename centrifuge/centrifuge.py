@@ -12,7 +12,7 @@ log = logging.getLogger('centrifuge')
 formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
 
 import service
-from config import BackupConfig
+from config import BackupConfig,ServiceNotAvailableError
 import state
 
 class CentrifugeFatalError(Exception):
@@ -29,6 +29,7 @@ class Centrifuge(object):
                         "/etc/centrifuge/services"
                       ]
   USER_SPEC_DIR = os.path.expanduser("~/.centrifuge")
+
   STATEFILE = "{0}/state".format(DATA_DIR)
   TIMEDELTAS = {
     'daily': datetime.timedelta(days=1),
@@ -46,6 +47,7 @@ class Centrifuge(object):
       func(self,*args, **kwargs)
     return _decorator
 
+
   @classmethod
   def _userpath(cls,path):
     return "{0}/{1}".format(cls.USER_SPEC_DIR,path)
@@ -59,11 +61,6 @@ class Centrifuge(object):
 
   def __init__(self):
     self._setup_datadir()
-    user_spec_vars = self._load_user_vars()
-
-    # Look for services in our additional locations.
-    addl_svc_dir = filter( os.path.exists, self.ADDL_SERVICE_DIRS)
-    self.services = self._load_services(user_spec_vars,addl_svc_dir)
 
   @config_required
   def run_backups(self,*args,**kwargs):
@@ -140,15 +137,16 @@ class Centrifuge(object):
 
     self.state = state.State.ParseFile(self.STATEFILE)
 
-  def _load_user_vars(self):
+  def _load_user_vars(self,location):
     """
     Load any user defined variables from `~/.centrifuge/user.vars`
     """
-    if not os.path.exists(self._userpath("user.vars")):
-      log.warn("Couldn't find any user variables in '{0}'".format(self._userpath("user.vars")))
+    path = os.path.expanduser(location)
+    if not os.path.exists(path):
+      log.warn("Couldn't find any user variables in '{0}'".format(path))
     else:
       try:
-        uservars = yaml.safe_load(open(self._userpath("user.vars")))
+        uservars = yaml.safe_load(open(path))
       except yaml.YAMLError,e:
         raise CentrifugeFatalError("Failed to parse user variable file.")
       except IOError:
@@ -206,6 +204,9 @@ class Centrifuge(object):
     p.add_argument("-c","--config",type=str,
                    help="Backup Configuration File",
                    required=True)
+    p.add_argument("--uservars",
+                   help="User variable specification file (Default ~/.centrifuge/user.vars)",
+                   default="~/.centrifuge/user.vars")
     vbose = argparse.ArgumentParser(add_help=False)
     vbose.add_argument("-v",action="store_true",
                    help="Be verbose")
@@ -229,10 +230,19 @@ class Centrifuge(object):
     args = container.parse_args()
     self.config_file = getattr(args,"config",None)
 
+    user_spec_vars = self._load_user_vars(args.uservars)
+    # Look for services in our additional locations.
+    addl_svc_dir = filter( os.path.exists, self.ADDL_SERVICE_DIRS)
+    self.services = self._load_services(user_spec_vars,addl_svc_dir)
+
     if args.v:
       log.setLevel(logging.DEBUG)
 
-    return args.func(args=args,state=self.state)
+    try:
+      return args.func(args=args,state=self.state)
+    except ServiceNotAvailableError, e:
+      log.error(e)
+      return -1;
 
 
 

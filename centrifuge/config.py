@@ -53,7 +53,7 @@ Files:
 # Weekly: {weekly}
 # Daily: {daily}
 """
-    
+
     pp = template.format(
             service = conf['service'],
             files = "\n\t".join(conf['files']),
@@ -85,8 +85,3 @@ Files:
     for name,config in self.iterconfig():
       if config['service'] not in available:
         raise ServiceNotAvailableError(config['service'])
-
-  
-  
-
-
