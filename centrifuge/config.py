@@ -1,5 +1,4 @@
 import yaml
-import os
 import logging
 import pkg_resources
 log = logging.getLogger('centrifuge.config')
@@ -9,8 +8,11 @@ class InvalidConfigurationError(Exception):
 
 class ServiceNotAvailableError(Exception):
 
+  def __init__(self,msg):
+    self.msg = msg
+
   def __str__(self):
-    return "Configuration requested backup service '{0}', which is not available."
+    return "Configuration requested backup service '{0}', which is not available.".format(self.msg)
 
 class BackupConfig(dict):
 
@@ -53,7 +55,7 @@ Files:
 # Weekly: {weekly}
 # Daily: {daily}
 """
-    
+
     pp = template.format(
             service = conf['service'],
             files = "\n\t".join(conf['files']),
@@ -85,8 +87,3 @@ Files:
     for name,config in self.iterconfig():
       if config['service'] not in available:
         raise ServiceNotAvailableError(config['service'])
-
-  
-  
-
-

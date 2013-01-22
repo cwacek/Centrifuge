@@ -81,15 +81,26 @@ class BackupService(object):
       except KeyError:
         log.debug("Service '{0}' does not provide '{1}'".format(name,command))
       else:
-        self.commands[command] = string.Template(newcommand).safe_substitute(spec_vars)
+        try:
+          # We substitute archive_name as $archive_name to keep it in the string
+          spec_vars.update({'archive_name': "$archive_name"})
+          self.commands[command] = string.Template(newcommand).substitute(spec_vars)
+        except KeyError as e:
+          log.error("{1} specification requires {0} variable.".format(e,name))
+          raise ServiceDefinitionError
 
-  def __getattr__(self,attr):
-    try:
-      return self.commands[attr]
-    except KeyError:
-      raise AttributeError("type object 'BackupService' has "
-                           "no attribute '{0}'".format(attr))
 
+  @property
+  def delete(self):
+    return self.commands['delete']
+
+  @property
+  def create(self):
+    return self.commands['create']
+
+  @property
+  def restore(self):
+    return self.commands['restore']
 
   def trim(self,interval,local_state, keep):
     """
@@ -102,7 +113,9 @@ class BackupService(object):
       return
 
     for candidate in sorted(candidates,key=lambda x: x.date_created)[keep:]:
+
       del_cmd = string.Template(self.delete).safe_substitute(archive_name=str(candidate))
+
       try:
         result = subprocess.check_output(del_cmd.split(),stderr=subprocess.STDOUT)
       except subprocess.CalledProcessError,e:
