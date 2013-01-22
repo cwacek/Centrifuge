@@ -113,7 +113,9 @@ class BackupService(object):
       return
 
     for candidate in sorted(candidates,key=lambda x: x.date_created)[keep:]:
+
       del_cmd = string.Template(self.delete).safe_substitute(archive_name=str(candidate))
+
       try:
         result = subprocess.check_output(del_cmd.split(),stderr=subprocess.STDOUT)
       except subprocess.CalledProcessError,e:
