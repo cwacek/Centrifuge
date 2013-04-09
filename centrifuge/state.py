@@ -100,6 +100,10 @@ class State(PropertyDict):
     return newinstance
 
   def get_oldest(self,interval):
+    if interval not in self:
+      raise service.ServiceDefinitionError("invalid interval requested")
+    if len(self[interval]) == 0:
+      return None
     return sorted(self[interval],key=lambda x: x.date_created)[0]
 
   @classmethod

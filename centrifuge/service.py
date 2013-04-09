@@ -134,19 +134,20 @@ class BackupService(object):
     log.info("Rotating {0}".format(interval))
     okay=True
     to_delete = local_state.get_oldest(interval)
+    if to_delete:
 
-    del_cmd = string.Template(self.delete).safe_substitute(archive_name=str(to_delete))
+      del_cmd = string.Template(self.delete).safe_substitute(archive_name=str(to_delete))
 
-    try:
-      result = subprocess.check_output(del_cmd.split(),stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError,e:
-      log.warn("Failed to remove '{0}' while rotating. [{1}]".format(
-                      to_delete,e))
-      okay=False
-    else:
-      local_state[interval].remove(to_delete)
-      log.info("Removed {0}. ".format(to_delete))
-      log.debug("Service output: {0}".format(result))
+      try:
+        result = subprocess.check_output(del_cmd.split(),stderr=subprocess.STDOUT)
+      except subprocess.CalledProcessError,e:
+        log.warn("Failed to remove '{0}' while rotating. [{1}]".format(
+                        to_delete,e))
+        okay=False
+      else:
+        local_state[interval].remove(to_delete)
+        log.info("Removed {0}. ".format(to_delete))
+        log.debug("Service output: {0}".format(result))
 
     self.add(interval,local_state, files)
 
@@ -174,7 +175,6 @@ class BackupService(object):
       local_state.add_instance(newbackup)
 
     return okay
-
 
   @classmethod
   def LoadSpecs(cls,specs,userspec=None):
