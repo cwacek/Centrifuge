@@ -69,7 +69,7 @@ Services
 -------------------
 Centrifuge operates using the notion of backup 'services', which
 can be any application that can be run from the command line.
-There is currently one built-in service, [ Tarsnap ][1], but more
+There is currently one built-in service, [Tarsnap][1], but more
 can be defined by the user. 
 
 ### Built-in Services
@@ -77,7 +77,7 @@ can be defined by the user.
 -   Tarsnap
 
     Tarsnap is an encrypted backup service which you can read
-    about [ here ][1]. The Centrifuge service requires you to
+    about [here][1]. The Centrifuge service requires you to
     define the following [User Variables]:
 
     -   `user_config`: User-specific configuration for Tarsnap,
@@ -152,5 +152,5 @@ definition):
         cmd_delete: "$var_bin $user_config -df $archive_name"
 
 
-[1] https://www.tarsnap.com
+[1]: https://www.tarsnap.com
 
